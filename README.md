@@ -7,7 +7,7 @@ This repository contains the projects I completed as part of my **Machine Learni
 ### **Task 1: Movie Genre Classification**
 - **Objective:** Predict the genre of a movie based on its plot summary or textual information.  
 - **Techniques:** TF-IDF, word embeddings, Naive Bayes, Logistic Regression, Support Vector Machines (SVM).  
-- **Dataset:** [Click here](#)  
+- **Dataset:** [Click here](https://www.kaggle.com/datasets/hijest/genre-classification-dataset-imdb)  
 
 ### **Task 2: Credit Card Fraud Detection**
 - **Objective:** Detect fraudulent credit card transactions using transaction data.  
