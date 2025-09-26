@@ -48,8 +48,3 @@ This repository contains the projects I completed as part of my **Machine Learni
 - Neural network implementation for sequence generation  
 
 ---
-
-## 🚀 How to Run
-1. Clone the repository:
-```bash
-git clone https://github.com/itzsTushar/CodSoft.git
