@@ -1,0 +1,1715 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "code",
+      "execution_count": 1,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "PGNKeE7psd2G",
+        "outputId": "69797046-70bc-4a2e-dd5e-d7d5686e93f6"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Using Colab cache for faster access to the 'fraud-detection' dataset.\n",
+            "Path to dataset files: /kaggle/input/fraud-detection\n"
+          ]
+        }
+      ],
+      "source": [
+        "import kagglehub\n",
+        "\n",
+        "# Download latest version\n",
+        "path = kagglehub.dataset_download(\"kartik2112/fraud-detection\")\n",
+        "\n",
+        "print(\"Path to dataset files:\", path)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "import matplotlib.pyplot as plt\n",
+        "import seaborn as sns\n",
+        "from geopy.distance import geodesic\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.preprocessing import LabelEncoder\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "from sklearn.tree import DecisionTreeClassifier\n",
+        "from imblearn.over_sampling import SMOTE\n",
+        "from sklearn.ensemble import RandomForestClassifier\n",
+        "from sklearn.linear_model import LogisticRegression\n",
+        "from sklearn.metrics import accuracy_score, classification_report, confusion_matrix"
+      ],
+      "metadata": {
+        "id": "5VI8Is8_uIKl"
+      },
+      "execution_count": 4,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "file_path = \"/kaggle/input/fraud-detection/fraudTrain.csv\"\n",
+        "df = pd.read_csv(file_path)\n",
+        "df.head()\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 551
+        },
+        "id": "Fp4cg0qptNBb",
+        "outputId": "525565d8-d2a0-4840-9685-c08e574954a9"
+      },
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "   Unnamed: 0 trans_date_trans_time            cc_num  \\\n",
+              "0           0   2019-01-01 00:00:18  2703186189652095   \n",
+              "1           1   2019-01-01 00:00:44      630423337322   \n",
+              "2           2   2019-01-01 00:00:51    38859492057661   \n",
+              "3           3   2019-01-01 00:01:16  3534093764340240   \n",
+              "4           4   2019-01-01 00:03:06   375534208663984   \n",
+              "\n",
+              "                             merchant       category     amt      first  \\\n",
+              "0          fraud_Rippin, Kub and Mann       misc_net    4.97   Jennifer   \n",
+              "1     fraud_Heller, Gutmann and Zieme    grocery_pos  107.23  Stephanie   \n",
+              "2                fraud_Lind-Buckridge  entertainment  220.11     Edward   \n",
+              "3  fraud_Kutch, Hermiston and Farrell  gas_transport   45.00     Jeremy   \n",
+              "4                 fraud_Keeling-Crist       misc_pos   41.96      Tyler   \n",
+              "\n",
+              "      last gender                        street  ...      lat      long  \\\n",
+              "0    Banks      F                561 Perry Cove  ...  36.0788  -81.1781   \n",
+              "1     Gill      F  43039 Riley Greens Suite 393  ...  48.8878 -118.2105   \n",
+              "2  Sanchez      M      594 White Dale Suite 530  ...  42.1808 -112.2620   \n",
+              "3    White      M   9443 Cynthia Court Apt. 038  ...  46.2306 -112.1138   \n",
+              "4   Garcia      M              408 Bradley Rest  ...  38.4207  -79.4629   \n",
+              "\n",
+              "   city_pop                                job         dob  \\\n",
+              "0      3495          Psychologist, counselling  1988-03-09   \n",
+              "1       149  Special educational needs teacher  1978-06-21   \n",
+              "2      4154        Nature conservation officer  1962-01-19   \n",
+              "3      1939                    Patent attorney  1967-01-12   \n",
+              "4        99     Dance movement psychotherapist  1986-03-28   \n",
+              "\n",
+              "                          trans_num   unix_time  merch_lat  merch_long  \\\n",
+              "0  0b242abb623afc578575680df30655b9  1325376018  36.011293  -82.048315   \n",
+              "1  1f76529f8574734946361c461b024d99  1325376044  49.159047 -118.186462   \n",
+              "2  a1a22d70485983eac12b5b88dad1cf95  1325376051  43.150704 -112.154481   \n",
+              "3  6b849c168bdad6f867558c3793159a81  1325376076  47.034331 -112.561071   \n",
+              "4  a41d7549acf90789359a9aa5346dcb46  1325376186  38.674999  -78.632459   \n",
+              "\n",
+              "   is_fraud  \n",
+              "0         0  \n",
+              "1         0  \n",
+              "2         0  \n",
+              "3         0  \n",
+              "4         0  \n",
+              "\n",
+              "[5 rows x 23 columns]"
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-96932d87-3f6b-4682-b123-23ddff6b1ec8\" class=\"colab-df-container\">\n",
+              "    <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Unnamed: 0</th>\n",
+              "      <th>trans_date_trans_time</th>\n",
+              "      <th>cc_num</th>\n",
+              "      <th>merchant</th>\n",
+              "      <th>category</th>\n",
+              "      <th>amt</th>\n",
+              "      <th>first</th>\n",
+              "      <th>last</th>\n",
+              "      <th>gender</th>\n",
+              "      <th>street</th>\n",
+              "      <th>...</th>\n",
+              "      <th>lat</th>\n",
+              "      <th>long</th>\n",
+              "      <th>city_pop</th>\n",
+              "      <th>job</th>\n",
+              "      <th>dob</th>\n",
+              "      <th>trans_num</th>\n",
+              "      <th>unix_time</th>\n",
+              "      <th>merch_lat</th>\n",
+              "      <th>merch_long</th>\n",
+              "      <th>is_fraud</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>0</td>\n",
+              "      <td>2019-01-01 00:00:18</td>\n",
+              "      <td>2703186189652095</td>\n",
+              "      <td>fraud_Rippin, Kub and Mann</td>\n",
+              "      <td>misc_net</td>\n",
+              "      <td>4.97</td>\n",
+              "      <td>Jennifer</td>\n",
+              "      <td>Banks</td>\n",
+              "      <td>F</td>\n",
+              "      <td>561 Perry Cove</td>\n",
+              "      <td>...</td>\n",
+              "      <td>36.0788</td>\n",
+              "      <td>-81.1781</td>\n",
+              "      <td>3495</td>\n",
+              "      <td>Psychologist, counselling</td>\n",
+              "      <td>1988-03-09</td>\n",
+              "      <td>0b242abb623afc578575680df30655b9</td>\n",
+              "      <td>1325376018</td>\n",
+              "      <td>36.011293</td>\n",
+              "      <td>-82.048315</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1</td>\n",
+              "      <td>2019-01-01 00:00:44</td>\n",
+              "      <td>630423337322</td>\n",
+              "      <td>fraud_Heller, Gutmann and Zieme</td>\n",
+              "      <td>grocery_pos</td>\n",
+              "      <td>107.23</td>\n",
+              "      <td>Stephanie</td>\n",
+              "      <td>Gill</td>\n",
+              "      <td>F</td>\n",
+              "      <td>43039 Riley Greens Suite 393</td>\n",
+              "      <td>...</td>\n",
+              "      <td>48.8878</td>\n",
+              "      <td>-118.2105</td>\n",
+              "      <td>149</td>\n",
+              "      <td>Special educational needs teacher</td>\n",
+              "      <td>1978-06-21</td>\n",
+              "      <td>1f76529f8574734946361c461b024d99</td>\n",
+              "      <td>1325376044</td>\n",
+              "      <td>49.159047</td>\n",
+              "      <td>-118.186462</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>2</td>\n",
+              "      <td>2019-01-01 00:00:51</td>\n",
+              "      <td>38859492057661</td>\n",
+              "      <td>fraud_Lind-Buckridge</td>\n",
+              "      <td>entertainment</td>\n",
+              "      <td>220.11</td>\n",
+              "      <td>Edward</td>\n",
+              "      <td>Sanchez</td>\n",
+              "      <td>M</td>\n",
+              "      <td>594 White Dale Suite 530</td>\n",
+              "      <td>...</td>\n",
+              "      <td>42.1808</td>\n",
+              "      <td>-112.2620</td>\n",
+              "      <td>4154</td>\n",
+              "      <td>Nature conservation officer</td>\n",
+              "      <td>1962-01-19</td>\n",
+              "      <td>a1a22d70485983eac12b5b88dad1cf95</td>\n",
+              "      <td>1325376051</td>\n",
+              "      <td>43.150704</td>\n",
+              "      <td>-112.154481</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>3</td>\n",
+              "      <td>2019-01-01 00:01:16</td>\n",
+              "      <td>3534093764340240</td>\n",
+              "      <td>fraud_Kutch, Hermiston and Farrell</td>\n",
+              "      <td>gas_transport</td>\n",
+              "      <td>45.00</td>\n",
+              "      <td>Jeremy</td>\n",
+              "      <td>White</td>\n",
+              "      <td>M</td>\n",
+              "      <td>9443 Cynthia Court Apt. 038</td>\n",
+              "      <td>...</td>\n",
+              "      <td>46.2306</td>\n",
+              "      <td>-112.1138</td>\n",
+              "      <td>1939</td>\n",
+              "      <td>Patent attorney</td>\n",
+              "      <td>1967-01-12</td>\n",
+              "      <td>6b849c168bdad6f867558c3793159a81</td>\n",
+              "      <td>1325376076</td>\n",
+              "      <td>47.034331</td>\n",
+              "      <td>-112.561071</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>4</td>\n",
+              "      <td>2019-01-01 00:03:06</td>\n",
+              "      <td>375534208663984</td>\n",
+              "      <td>fraud_Keeling-Crist</td>\n",
+              "      <td>misc_pos</td>\n",
+              "      <td>41.96</td>\n",
+              "      <td>Tyler</td>\n",
+              "      <td>Garcia</td>\n",
+              "      <td>M</td>\n",
+              "      <td>408 Bradley Rest</td>\n",
+              "      <td>...</td>\n",
+              "      <td>38.4207</td>\n",
+              "      <td>-79.4629</td>\n",
+              "      <td>99</td>\n",
+              "      <td>Dance movement psychotherapist</td>\n",
+              "      <td>1986-03-28</td>\n",
+              "      <td>a41d7549acf90789359a9aa5346dcb46</td>\n",
+              "      <td>1325376186</td>\n",
+              "      <td>38.674999</td>\n",
+              "      <td>-78.632459</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "<p>5 rows × 23 columns</p>\n",
+              "</div>\n",
+              "    <div class=\"colab-df-buttons\">\n",
+              "\n",
+              "  <div class=\"colab-df-container\">\n",
+              "    <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-96932d87-3f6b-4682-b123-23ddff6b1ec8')\"\n",
+              "            title=\"Convert this dataframe to an interactive table.\"\n",
+              "            style=\"display:none;\">\n",
+              "\n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\" viewBox=\"0 -960 960 960\">\n",
+              "    <path d=\"M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z\"/>\n",
+              "  </svg>\n",
+              "    </button>\n",
+              "\n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-buttons div {\n",
+              "      margin-bottom: 4px;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "    <script>\n",
+              "      const buttonEl =\n",
+              "        document.querySelector('#df-96932d87-3f6b-4682-b123-23ddff6b1ec8 button.colab-df-convert');\n",
+              "      buttonEl.style.display =\n",
+              "        google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "      async function convertToInteractive(key) {\n",
+              "        const element = document.querySelector('#df-96932d87-3f6b-4682-b123-23ddff6b1ec8');\n",
+              "        const dataTable =\n",
+              "          await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                    [key], {});\n",
+              "        if (!dataTable) return;\n",
+              "\n",
+              "        const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "          '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "          + ' to learn more about interactive tables.';\n",
+              "        element.innerHTML = '';\n",
+              "        dataTable['output_type'] = 'display_data';\n",
+              "        await google.colab.output.renderOutput(dataTable, element);\n",
+              "        const docLink = document.createElement('div');\n",
+              "        docLink.innerHTML = docLinkHtml;\n",
+              "        element.appendChild(docLink);\n",
+              "      }\n",
+              "    </script>\n",
+              "  </div>\n",
+              "\n",
+              "\n",
+              "    <div id=\"df-f891907f-1df2-41bb-9464-222090949c5c\">\n",
+              "      <button class=\"colab-df-quickchart\" onclick=\"quickchart('df-f891907f-1df2-41bb-9464-222090949c5c')\"\n",
+              "                title=\"Suggest charts\"\n",
+              "                style=\"display:none;\">\n",
+              "\n",
+              "<svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "     width=\"24px\">\n",
+              "    <g>\n",
+              "        <path d=\"M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z\"/>\n",
+              "    </g>\n",
+              "</svg>\n",
+              "      </button>\n",
+              "\n",
+              "<style>\n",
+              "  .colab-df-quickchart {\n",
+              "      --bg-color: #E8F0FE;\n",
+              "      --fill-color: #1967D2;\n",
+              "      --hover-bg-color: #E2EBFA;\n",
+              "      --hover-fill-color: #174EA6;\n",
+              "      --disabled-fill-color: #AAA;\n",
+              "      --disabled-bg-color: #DDD;\n",
+              "  }\n",
+              "\n",
+              "  [theme=dark] .colab-df-quickchart {\n",
+              "      --bg-color: #3B4455;\n",
+              "      --fill-color: #D2E3FC;\n",
+              "      --hover-bg-color: #434B5C;\n",
+              "      --hover-fill-color: #FFFFFF;\n",
+              "      --disabled-bg-color: #3B4455;\n",
+              "      --disabled-fill-color: #666;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart {\n",
+              "    background-color: var(--bg-color);\n",
+              "    border: none;\n",
+              "    border-radius: 50%;\n",
+              "    cursor: pointer;\n",
+              "    display: none;\n",
+              "    fill: var(--fill-color);\n",
+              "    height: 32px;\n",
+              "    padding: 0;\n",
+              "    width: 32px;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart:hover {\n",
+              "    background-color: var(--hover-bg-color);\n",
+              "    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "    fill: var(--button-hover-fill-color);\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart-complete:disabled,\n",
+              "  .colab-df-quickchart-complete:disabled:hover {\n",
+              "    background-color: var(--disabled-bg-color);\n",
+              "    fill: var(--disabled-fill-color);\n",
+              "    box-shadow: none;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-spinner {\n",
+              "    border: 2px solid var(--fill-color);\n",
+              "    border-color: transparent;\n",
+              "    border-bottom-color: var(--fill-color);\n",
+              "    animation:\n",
+              "      spin 1s steps(1) infinite;\n",
+              "  }\n",
+              "\n",
+              "  @keyframes spin {\n",
+              "    0% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "      border-left-color: var(--fill-color);\n",
+              "    }\n",
+              "    20% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    30% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    40% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    60% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    80% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "    90% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "  }\n",
+              "</style>\n",
+              "\n",
+              "      <script>\n",
+              "        async function quickchart(key) {\n",
+              "          const quickchartButtonEl =\n",
+              "            document.querySelector('#' + key + ' button');\n",
+              "          quickchartButtonEl.disabled = true;  // To prevent multiple clicks.\n",
+              "          quickchartButtonEl.classList.add('colab-df-spinner');\n",
+              "          try {\n",
+              "            const charts = await google.colab.kernel.invokeFunction(\n",
+              "                'suggestCharts', [key], {});\n",
+              "          } catch (error) {\n",
+              "            console.error('Error during call to suggestCharts:', error);\n",
+              "          }\n",
+              "          quickchartButtonEl.classList.remove('colab-df-spinner');\n",
+              "          quickchartButtonEl.classList.add('colab-df-quickchart-complete');\n",
+              "        }\n",
+              "        (() => {\n",
+              "          let quickchartButtonEl =\n",
+              "            document.querySelector('#df-f891907f-1df2-41bb-9464-222090949c5c button');\n",
+              "          quickchartButtonEl.style.display =\n",
+              "            google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "        })();\n",
+              "      </script>\n",
+              "    </div>\n",
+              "\n",
+              "    </div>\n",
+              "  </div>\n"
+            ],
+            "application/vnd.google.colaboratory.intrinsic+json": {
+              "type": "dataframe",
+              "variable_name": "df"
+            }
+          },
+          "metadata": {},
+          "execution_count": 2
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df.info()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "dNQFYv-wuEEt",
+        "outputId": "2f951386-66cc-4b96-e784-12f4ca16f210"
+      },
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "<class 'pandas.core.frame.DataFrame'>\n",
+            "RangeIndex: 1296675 entries, 0 to 1296674\n",
+            "Data columns (total 23 columns):\n",
+            " #   Column                 Non-Null Count    Dtype  \n",
+            "---  ------                 --------------    -----  \n",
+            " 0   Unnamed: 0             1296675 non-null  int64  \n",
+            " 1   trans_date_trans_time  1296675 non-null  object \n",
+            " 2   cc_num                 1296675 non-null  int64  \n",
+            " 3   merchant               1296675 non-null  object \n",
+            " 4   category               1296675 non-null  object \n",
+            " 5   amt                    1296675 non-null  float64\n",
+            " 6   first                  1296675 non-null  object \n",
+            " 7   last                   1296675 non-null  object \n",
+            " 8   gender                 1296675 non-null  object \n",
+            " 9   street                 1296675 non-null  object \n",
+            " 10  city                   1296675 non-null  object \n",
+            " 11  state                  1296675 non-null  object \n",
+            " 12  zip                    1296675 non-null  int64  \n",
+            " 13  lat                    1296675 non-null  float64\n",
+            " 14  long                   1296675 non-null  float64\n",
+            " 15  city_pop               1296675 non-null  int64  \n",
+            " 16  job                    1296675 non-null  object \n",
+            " 17  dob                    1296675 non-null  object \n",
+            " 18  trans_num              1296675 non-null  object \n",
+            " 19  unix_time              1296675 non-null  int64  \n",
+            " 20  merch_lat              1296675 non-null  float64\n",
+            " 21  merch_long             1296675 non-null  float64\n",
+            " 22  is_fraud               1296675 non-null  int64  \n",
+            "dtypes: float64(5), int64(6), object(12)\n",
+            "memory usage: 227.5+ MB\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "#Time Based Feature"
+      ],
+      "metadata": {
+        "id": "rU9WrpjvZtXd"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# --- Ensure datetime columns ---\n",
+        "df['trans_date_trans_time'] = pd.to_datetime(df['trans_date_trans_time'])\n",
+        "df['dob'] = pd.to_datetime(df['dob'])"
+      ],
+      "metadata": {
+        "id": "ytuHWSVFuRTs"
+      },
+      "execution_count": 5,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "df['hour'] = df['trans_date_trans_time'].dt.hour\n",
+        "df['day_of_week'] = df['trans_date_trans_time'].dt.dayofweek\n",
+        "df['is_weekend'] = df['day_of_week'].isin([5,6]).astype(int)"
+      ],
+      "metadata": {
+        "id": "eBC5WUKnuVbJ"
+      },
+      "execution_count": 6,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Time since last transaction (per user)\n",
+        "df = df.sort_values(by=['cc_num','trans_date_trans_time'])\n",
+        "df['time_since_last'] = df.groupby('cc_num')['trans_date_trans_time'].diff().dt.total_seconds().fillna(0)\n"
+      ],
+      "metadata": {
+        "id": "L94jfWzQubDV"
+      },
+      "execution_count": 7,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Transaction frequency in past 1 hour\n",
+        "df['trans_date_trans_time'] = pd.to_datetime(df['trans_date_trans_time'])\n",
+        "\n",
+        "# Sort before grouping\n",
+        "df = df.sort_values(by=['cc_num', 'trans_date_trans_time'])\n",
+        "\n",
+        "# Define a function to compute rolling counts\n",
+        "def rolling_count_last_hour(group):\n",
+        "    # Set datetime as index for rolling\n",
+        "    group = group.set_index('trans_date_trans_time')\n",
+        "    # Count transactions within the past 1 hour window\n",
+        "    group['trans_count_1h'] = group['cc_num'].rolling('1h').count()\n",
+        "    # Reset index to keep the same structure\n",
+        "    return group.reset_index()\n",
+        "\n",
+        "# Apply per user/card group\n",
+        "df = df.groupby('cc_num', group_keys=False).apply(rolling_count_last_hour)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "5hMG-qgzueqJ",
+        "outputId": "bd223127-db1f-469e-fe9d-49f86529cb74"
+      },
+      "execution_count": 8,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/tmp/ipython-input-425114082.py:17: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.\n",
+            "  df = df.groupby('cc_num', group_keys=False).apply(rolling_count_last_hour)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Compute geo distance (user vs merchant)\n",
+        "df['distance_km'] = df.apply(\n",
+        "    lambda row: geodesic((row['lat'], row['long']),\n",
+        "                         (row['merch_lat'], row['merch_long'])).km,\n",
+        "    axis=1\n",
+        ")\n",
+        "\n",
+        "# Mark as same_state if within ~50 km\n",
+        "df['same_state'] = (df['distance_km'] < 50).astype(int)\n"
+      ],
+      "metadata": {
+        "id": "PdFdknAWuiYd"
+      },
+      "execution_count": 9,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "#Amout Based Feature"
+      ],
+      "metadata": {
+        "id": "CzeqtY1VZ0BH"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df['log_amt'] = np.log1p(df['amt'])\n",
+        "# Relative amount (vs customer mean)\n",
+        "df['avg_amt_user'] = df.groupby('cc_num')['amt'].transform('mean')\n",
+        "df['relative_amt'] = df['amt'] / (df['avg_amt_user'] + 1e-5)\n",
+        "# High-value flag (e.g., > 95th percentile)\n",
+        "threshold = df['amt'].quantile(0.95)\n",
+        "df['high_value'] = (df['amt'] > threshold).astype(int)"
+      ],
+      "metadata": {
+        "id": "ibOvhjYDunpN"
+      },
+      "execution_count": 11,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "\n",
+        "#DEMOGRAPHIC FEATURES\n"
+      ],
+      "metadata": {
+        "id": "MFPoOfxHaHbK"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Age\n",
+        "df['age'] = df['trans_date_trans_time'].dt.year - df['dob'].dt.year\n",
+        "# Age group\n",
+        "df['age_group'] = pd.cut(df['age'], bins=[0,25,40,60,120], labels=['<25','25-40','40-60','60+'])\n",
+        "# Occupation risk category (simplified example)\n",
+        "risky_jobs = ['student','retired','unemployed']\n",
+        "df['job_risk'] = df['job'].apply(lambda x: 1 if str(x).lower() in risky_jobs else 0)\n",
+        "# City population group\n",
+        "df['city_pop_group'] = pd.cut(df['city_pop'],\n",
+        "                              bins=[0,50000,200000,1000000,1e10],\n",
+        "                              labels=['rural','small_city','city','metro'])"
+      ],
+      "metadata": {
+        "id": "kErhUf5CurCv"
+      },
+      "execution_count": 12,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "#BEHAVIORAL FEATURES\n"
+      ],
+      "metadata": {
+        "id": "k_KoztsVaQWg"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Number of unique merchants visited\n",
+        "df['unique_merchants'] = df.groupby('cc_num')['merchant'].transform('nunique')\n",
+        "\n"
+      ],
+      "metadata": {
+        "id": "QWrKkpfVuwAV"
+      },
+      "execution_count": 13,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Average transaction amount per user\n",
+        "df['user_avg_amt'] = df.groupby('cc_num')['amt'].transform('mean')\n"
+      ],
+      "metadata": {
+        "id": "2pPmVswVuz_V"
+      },
+      "execution_count": 14,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df = df.sort_values(by=['cc_num', 'trans_date_trans_time'])\n",
+        "\n",
+        "# Define function for rolling 7-day transaction count\n",
+        "def rolling_count_last_7d(group):\n",
+        "    group = group.set_index('trans_date_trans_time')\n",
+        "    group['trans_count_7d'] = group['cc_num'].rolling('7d').count()\n",
+        "    return group.reset_index()\n",
+        "\n",
+        "# Apply per cardholder\n",
+        "df = df.groupby('cc_num', group_keys=False).apply(rolling_count_last_7d)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "BYo6PIt7u5v_",
+        "outputId": "34955dd5-b487-46ec-b685-7f8db015dfef"
+      },
+      "execution_count": 15,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/tmp/ipython-input-3628543483.py:11: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.\n",
+            "  df = df.groupby('cc_num', group_keys=False).apply(rolling_count_last_7d)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Merchant diversity (unique merchants / total transactions)\n",
+        "df['merchant_diversity'] = df['unique_merchants'] / df.groupby('cc_num')['merchant'].transform('count')\n"
+      ],
+      "metadata": {
+        "id": "xdoSoUfCu9sm"
+      },
+      "execution_count": 16,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "#CATEGORICAL FEATURES\n"
+      ],
+      "metadata": {
+        "id": "qWBujueyaX9J"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "categorical_cols = ['merchant','category','state','job']\n",
+        "for col in categorical_cols:\n",
+        "    le = LabelEncoder()\n",
+        "    df[col+'_encoded'] = le.fit_transform(df[col].astype(str))\n",
+        "for col in categorical_cols:\n",
+        "    freq_enc = df[col].value_counts().to_dict()\n",
+        "    df[col+'_freq'] = df[col].map(freq_enc)\n",
+        "\n",
+        "print(\"New features created:\", df.columns)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "C8VnO9-CvAUI",
+        "outputId": "e2f26b02-0ec2-4848-cf39-579e673f7386"
+      },
+      "execution_count": 17,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "New features created: Index(['trans_date_trans_time', 'Unnamed: 0', 'cc_num', 'merchant', 'category',\n",
+            "       'amt', 'first', 'last', 'gender', 'street', 'city', 'state', 'zip',\n",
+            "       'lat', 'long', 'city_pop', 'job', 'dob', 'trans_num', 'unix_time',\n",
+            "       'merch_lat', 'merch_long', 'is_fraud', 'hour', 'day_of_week',\n",
+            "       'is_weekend', 'time_since_last', 'trans_count_1h', 'distance_km',\n",
+            "       'same_state', 'log_amt', 'avg_amt_user', 'relative_amt', 'high_value',\n",
+            "       'age', 'age_group', 'job_risk', 'city_pop_group', 'unique_merchants',\n",
+            "       'user_avg_amt', 'trans_count_7d', 'merchant_diversity',\n",
+            "       'merchant_encoded', 'category_encoded', 'state_encoded', 'job_encoded',\n",
+            "       'merchant_freq', 'category_freq', 'state_freq', 'job_freq'],\n",
+            "      dtype='object')\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "cols_to_keep = [\n",
+        "    'log_amt', 'hour', 'day_of_week', 'time_since_last',\n",
+        "    'trans_count_1h', 'trans_count_7d',\n",
+        "    'age', 'gender',\n",
+        "    'distance_km', 'same_state', 'city_pop_group',\n",
+        "    'merchant_diversity', 'unique_merchants',\n",
+        "    'merchant_encoded', 'category_encoded', 'state_encoded', 'job_encoded',\n",
+        "    'job_risk', 'avg_amt_user',\n",
+        "    'is_fraud'\n",
+        "]\n",
+        "\n",
+        "df_model = df[cols_to_keep]\n",
+        "print(df_model.columns)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "aQmdrvumvJhf",
+        "outputId": "187243f4-6e7f-4af0-a434-87e2c772fde9"
+      },
+      "execution_count": 18,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Index(['log_amt', 'hour', 'day_of_week', 'time_since_last', 'trans_count_1h',\n",
+            "       'trans_count_7d', 'age', 'gender', 'distance_km', 'same_state',\n",
+            "       'city_pop_group', 'merchant_diversity', 'unique_merchants',\n",
+            "       'merchant_encoded', 'category_encoded', 'state_encoded', 'job_encoded',\n",
+            "       'job_risk', 'avg_amt_user', 'is_fraud'],\n",
+            "      dtype='object')\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "le = LabelEncoder()\n",
+        "df_model['gender'] = le.fit_transform(df_model['gender'])\n",
+        "df_model['city_pop_group'] = le.fit_transform(df_model['city_pop_group'])"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "KYzFtHrjvLS5",
+        "outputId": "088b8b55-1aa0-4375-b38a-82bdc1403dbd"
+      },
+      "execution_count": 19,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/tmp/ipython-input-3619086601.py:2: SettingWithCopyWarning: \n",
+            "A value is trying to be set on a copy of a slice from a DataFrame.\n",
+            "Try using .loc[row_indexer,col_indexer] = value instead\n",
+            "\n",
+            "See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy\n",
+            "  df_model['gender'] = le.fit_transform(df_model['gender'])\n",
+            "/tmp/ipython-input-3619086601.py:3: SettingWithCopyWarning: \n",
+            "A value is trying to be set on a copy of a slice from a DataFrame.\n",
+            "Try using .loc[row_indexer,col_indexer] = value instead\n",
+            "\n",
+            "See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy\n",
+            "  df_model['city_pop_group'] = le.fit_transform(df_model['city_pop_group'])\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "class_counts = df_model['is_fraud'].value_counts()\n",
+        "print(class_counts)\n",
+        "class_counts.plot(kind='bar', color=['skyblue', 'salmon'])\n",
+        "plt.title('Class Distribution of is_fraud')\n",
+        "plt.xlabel('is_fraud')\n",
+        "plt.ylabel('Count')\n",
+        "plt.show()\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 538
+        },
+        "id": "3PmqYNRmvToe",
+        "outputId": "2500c50a-f52c-4283-f4f4-705cd96b27c8"
+      },
+      "execution_count": 20,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "is_fraud\n",
+            "0    1289169\n",
+            "1       7506\n",
+            "Name: count, dtype: int64\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<Figure size 640x480 with 1 Axes>"
+            ],
+            "image/png": "iVBORw0KGgoAAAANSUhEUgAAAjcAAAHCCAYAAAATn+iZAAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjAsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvlHJYcgAAAAlwSFlzAAAPYQAAD2EBqD+naQAANHdJREFUeJzt3XtUVXX+//HXEeWgInhBuUniLfOK5IW8jOmEkrdy5mvZZbyw0qa8pJKWNAVKKk2l0iiOk2V2GdNyypoyTSHHb8VvVNQcHa3xFo4GeElQUkDYvz9anG9HQAGPHPz4fKx11mp/9mfv/d6HQ7z87M/ex2ZZliUAAABD1HJ3AQAAAK5EuAEAAEYh3AAAAKMQbgAAgFEINwAAwCiEGwAAYBTCDQAAMArhBgAAGIVwAwAAjEK4ASooNDRU48aNc3cZ12z27Nmy2WzVcqz+/furf//+juUtW7bIZrNp7dq11XL8cePGKTQ0tFqOVVXnz5/X+PHjFRAQIJvNpmnTppXb93p9BrOysjRy5Eg1adJENptNSUlJLj9GVZnye4fqRbjBTe/QoUP6/e9/r1atWsnLy0s+Pj7q06ePXnnlFV24cMHd5V3RypUrZbPZHC8vLy8FBQUpKipKf/rTn3Tu3DmXHOfEiROaPXu2du/e7ZL9uVJNrq0i5s+fr5UrV+rxxx/X22+/rdGjR1d7DdOnT9fGjRsVGxurt99+W3fffXe11wC4Um13FwC406effqr77rtPdrtdY8aMUadOnVRQUKAvv/xSM2fO1L59+/Tqq6+6u8yrSkhIUMuWLVVYWKjMzExt2bJF06ZN08KFC/Xxxx+rS5cujr7PPvusZs2aVan9nzhxQnPmzFFoaKi6du1a4e0+//zzSh2nKq5U2/Lly1VcXHzda7gWqampuuOOOxQfH3/Vvt9++61q1XL9v0lTU1N17733asaMGS7fN+AOhBvctI4cOaIHHnhALVq0UGpqqgIDAx3rJk2apIMHD+rTTz91Y4UVN3jwYHXv3t2xHBsbq9TUVA0bNkz33HOP9u/fr7p160qSateurdq1r++v/k8//aR69erJ09Pzuh7naurUqePW41dEdna2OnToUKG+drv9utXQsGHDq/bLy8tT/fr1r0sNgCtxWQo3rRdffFHnz5/X66+/7hRsSrRp00ZTp04td/szZ85oxowZ6ty5s7y9veXj46PBgwfrm2++KdV38eLF6tixo+rVq6dGjRqpe/fuWrVqlWP9uXPnNG3aNIWGhsput6tZs2YaOHCgdu7cWeXz+/Wvf63nnntO33//vd555x1He1lzbjZt2qS+ffuqYcOG8vb2Vrt27fTMM89I+nmeTI8ePSRJ0dHRjktgK1eulPTzvJpOnTopPT1d/fr1U7169RzbXj7npkRRUZGeeeYZBQQEqH79+rrnnnt07Ngxpz7lzbX45T6vVltZc27y8vL05JNPKiQkRHa7Xe3atdPLL78sy7Kc+tlsNk2ePFnr1q1Tp06dZLfb1bFjR23YsKHsN/wy2dnZeuSRR+Tv7y8vLy+FhYXpzTffdKwvmX905MgRffrpp47ajx49Wu4+L39PCgsLNWfOHLVt21ZeXl5q0qSJ+vbtq02bNlWoxpLLmpZlKTk52VHDL9f94x//0MSJE9WsWTM1b95ckvT9999r4sSJateunerWrasmTZrovvvuK1V7efO7Svb9y/6WZWnu3Llq3ry56tWrpwEDBmjfvn0VOg/gcozc4Kb197//Xa1atVLv3r2rtP3hw4e1bt063XfffWrZsqWysrL0l7/8RXfeeaf+/e9/KygoSNLPl0aeeOIJjRw5UlOnTtXFixe1Z88e/fOf/9RDDz0kSXrssce0du1aTZ48WR06dNDp06f15Zdfav/+/br99turfI6jR4/WM888o88//1wTJkwos8++ffs0bNgwdenSRQkJCbLb7Tp48KC++uorSVL79u2VkJCguLg4Pfroo/rVr34lSU7v2+nTpzV48GA98MAD+t3vfid/f/8r1jVv3jzZbDY9/fTTys7OVlJSkiIjI7V7927HCFNFVKS2X7IsS/fcc4+++OILPfLII+ratas2btyomTNn6vjx41q0aJFT/y+//FIffPCBJk6cqAYNGuhPf/qT/ud//kcZGRlq0qRJuXVduHBB/fv318GDBzV58mS1bNlS77//vsaNG6ezZ89q6tSpat++vd5++21Nnz5dzZs315NPPilJatq0aYXPf/bs2UpMTNT48ePVs2dP5ebmaseOHdq5c6cGDhx41e379evnmOczcOBAjRkzplSfiRMnqmnTpoqLi1NeXp4kafv27fr666/1wAMPqHnz5jp69Kj+/Oc/q3///vr3v/+tevXqVfgcSsTFxWnu3LkaMmSIhgwZ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XNPnpiLK+uwvXry41IhMyXylrVu3Otry8vKcbomXfp7bVKdOHS1evNhpvzXpayBwY+FW8HJkZGQ4/pVdckvvjBkztGHDBr3xxhuaP3++Dh8+rO+//17vv/++3nrrLRUVFWn69OkaOXKkUlNT3XwGuJrWrVtr1apVGjVqlNq3b+/0hOKvv/7acetueYYNG6aEhARFR0erd+/e+te//qW//vWvatWqlVO/QYMGKSAgQH369JG/v7/279+vJUuWaOjQoWrQoIHOnj2r5s2ba+TIkQoLC5O3t7c2b96s7du3a8GCBRU6l88++0wHDhzQpUuXlJWVpdTUVG3atEktWrTQxx9/LC8vr3K3TUhI0NatWzV06FC1aNFC2dnZWrp0qZo3b66+ffs63quGDRtq2bJlatCggWMks6z5GBXRuHFj9e3bV9HR0crKylJSUpLatGnjdLv6+PHjtXbtWt199926//77dejQIb3zzjtOE3wrW9vw4cM1YMAA/eEPf9DRo0cVFhamzz//XB999JGmTZtWat9V9eijj+ovf/mLxo0bp/T0dIWGhmrt2rX66quvlJSUdE0T2X+pQ4cO6t+/v7p166bGjRtrx44djkcKXE/Dhg3T22+/LV9fX3Xo0EFpaWnavHlzqdvjBw0apFtuuUWPPPKIZs6cKQ8PD61YsUJNmzZVRkaGo1/Tpk01Y8YMJSYmatiwYRoyZIh27dqlzz77TH5+ftf1XGAo992oVbNIsj788EPH8ieffGJJsurXr+/0ql27tnX//fdblmVZEyZMsCRZ3377rWO79PR0S5J14MCB6j4FVNF3331nTZgwwQoNDbU8PT2tBg0aWH369LEWL15sXbx40dGvrFvBn3zySSswMNCqW7eu1adPHystLa3Urcp/+ctfrH79+llNmjSx7Ha71bp1a2vmzJlWTk6OZVmWlZ+fb82cOdMKCwuzGjRoYNWvX98KCwuzli5detXaS26pLXl5enpaAQEB1sCBA61XXnnF6ZbjEpffnpuSkmLde++9VlBQkOXp6WkFBQVZDz74oPXdd985bffRRx9ZHTp0sGrXru106/Wdd95Z7q3u5d0K/u6771qxsbFWs2bNrLp161pDhw61vv/++1LbL1iwwAoODrbsdrvVp08fa8eOHaX2eaXaLr8V3LIs69y5c9b06dOtoKAgq06dOlbbtm2tl156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bp+CggJ5enpe87EA3Li4LAWgWvzystTSpUvVtm1beXl5yd/fXyNHjrzq9uPGjdOUKVOUkZEhm82m0NBQx34nT56sadOmyc/PT1FRUZKkhQsXqnPnzqpfv75CQkI0ceJEnT9/3rG/2bNnq2vXrk7HSEpKcuxXkoqKihQTE6OGDRuqSZMmeuqpp6746H8ANQPhBkC12rFjh5544gklJCTo22+/1YYNG9SvX7+rbvfKK68oISFBzZs31w8//KDt27c71r355pvy9PTUV199pWXLlkmSatWqpT/96U/at2+f3nzzTaWmpuqpp56qVK0LFizQypUrtWLFCn355Zc6c+aMPvzww8qdMIBqx2UpANUqIyND9evX17Bhw9SgQQO1aNFC4eHhV93O19dXDRo0kIeHhwICApzWtW3bVi+++KJT2y8nL4eGhmru3Ll67LHHtHTp0grXmpSUpNjYWP32t7+VJC1btkwbN26s8PYA3IORGwDVauDAgWrRooVatWql0aNH669//at++umna9pnt27dSrVt3rxZd911l4KDg9WgQQONHj1ap0+frvCxcnJy9MMPPygiIsLRVrt2bXXv3v2aagVw/RFuAFSrBg0aaOfOnXr33XcVGBiouLg4hYWF6ezZs1XeZ/369Z2Wjx49qmHDhqlLly7629/+pvT0dCUnJ0v6ecKx9PNlq8vnzxQWFla5BgA1B+EGQLWrXbu2IiMj9eKLL2rPnj06evSoUlNTXbb/9PR0FRcXa8GCBbrjjjt066236sSJE059mjZtqszMTKeA88vn5vj6+iowMFD//Oc/HW2XLl1Senq6y+oEcH0w5wZAtfrkk090+PBh9evXT40aNdL69etVXFysdu3auewYbdq0UWFhoRYvXqzhw4c7TTQu0b9/f508eVIvvviiRo4cqQ0bNuizzz6Tj4+Po8/UqVP1wgsvqG3btrrtttu0cOHCaxphAlA9GLkBUK0aNmyoDz74QL/+9a/Vvn17LVu2TO+++646duzosmOEhYVp4cKF+uMf/6hOnTrpr3/9qxITE536tG/fXkuXLlVycrLCwsK0bds2zZgxw6nPk08+qdGjR2vs2LHq1auXGjRooN/85jcuqxPA9WGzeGgDAAAwCCM3AADAKIQbADVCRkaGvL29y31lZGS4u0QANwguSwGoES5duqSjR4+Wuz40NFS1a3MPBICrI9wAAACjcFkKAAAYhXADAACMQrgBAABGIdwAAACjEG4AAIBRCDcAAMAohBsAAGAUwg0AADDK/wfAOAFJy6h8wgAAAABJRU5ErkJggg==\n"
+          },
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df_model.head()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 226
+        },
+        "id": "5L9N_yWMwCA4",
+        "outputId": "8fc8652f-8e78-49f8-d44d-3462ba062bf0"
+      },
+      "execution_count": 21,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "    log_amt  hour  day_of_week  time_since_last  trans_count_1h  \\\n",
+              "0  2.112635    12            1              0.0             1.0   \n",
+              "1  3.987872     8            2          71862.0             1.0   \n",
+              "2  4.419804     8            2            159.0             2.0   \n",
+              "3  3.577669    12            2          13838.0             1.0   \n",
+              "4  3.338613    13            2           1952.0             2.0   \n",
+              "\n",
+              "   trans_count_7d  age  gender  distance_km  same_state  city_pop_group  \\\n",
+              "0             1.0   33       0   127.629296           0               2   \n",
+              "1             2.0   33       0   110.202992           0               2   \n",
+              "2             3.0   33       0    21.841827           1               2   \n",
+              "3             4.0   33       0    87.124420           0               2   \n",
+              "4             5.0   33       0    74.352876           0               2   \n",
+              "\n",
+              "   merchant_diversity  unique_merchants  merchant_encoded  category_encoded  \\\n",
+              "0            0.378788               575               293                 8   \n",
+              "1            0.378788               575                43                 2   \n",
+              "2            0.378788               575               399                 2   \n",
+              "3            0.378788               575               126                 7   \n",
+              "4            0.378788               575                41                 6   \n",
+              "\n",
+              "   state_encoded  job_encoded  job_risk  avg_amt_user  is_fraud  \n",
+              "0             50          246         0     56.023366         0  \n",
+              "1             50          246         0     56.023366         0  \n",
+              "2             50          246         0     56.023366         0  \n",
+              "3             50          246         0     56.023366         0  \n",
+              "4             50          246         0     56.023366         0  "
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-fe7e8da1-f7e2-4fcf-b51b-6ac46fd0d155\" class=\"colab-df-container\">\n",
+              "    <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>log_amt</th>\n",
+              "      <th>hour</th>\n",
+              "      <th>day_of_week</th>\n",
+              "      <th>time_since_last</th>\n",
+              "      <th>trans_count_1h</th>\n",
+              "      <th>trans_count_7d</th>\n",
+              "      <th>age</th>\n",
+              "      <th>gender</th>\n",
+              "      <th>distance_km</th>\n",
+              "      <th>same_state</th>\n",
+              "      <th>city_pop_group</th>\n",
+              "      <th>merchant_diversity</th>\n",
+              "      <th>unique_merchants</th>\n",
+              "      <th>merchant_encoded</th>\n",
+              "      <th>category_encoded</th>\n",
+              "      <th>state_encoded</th>\n",
+              "      <th>job_encoded</th>\n",
+              "      <th>job_risk</th>\n",
+              "      <th>avg_amt_user</th>\n",
+              "      <th>is_fraud</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>2.112635</td>\n",
+              "      <td>12</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>33</td>\n",
+              "      <td>0</td>\n",
+              "      <td>127.629296</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>0.378788</td>\n",
+              "      <td>575</td>\n",
+              "      <td>293</td>\n",
+              "      <td>8</td>\n",
+              "      <td>50</td>\n",
+              "      <td>246</td>\n",
+              "      <td>0</td>\n",
+              "      <td>56.023366</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>3.987872</td>\n",
+              "      <td>8</td>\n",
+              "      <td>2</td>\n",
+              "      <td>71862.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>2.0</td>\n",
+              "      <td>33</td>\n",
+              "      <td>0</td>\n",
+              "      <td>110.202992</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>0.378788</td>\n",
+              "      <td>575</td>\n",
+              "      <td>43</td>\n",
+              "      <td>2</td>\n",
+              "      <td>50</td>\n",
+              "      <td>246</td>\n",
+              "      <td>0</td>\n",
+              "      <td>56.023366</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>4.419804</td>\n",
+              "      <td>8</td>\n",
+              "      <td>2</td>\n",
+              "      <td>159.0</td>\n",
+              "      <td>2.0</td>\n",
+              "      <td>3.0</td>\n",
+              "      <td>33</td>\n",
+              "      <td>0</td>\n",
+              "      <td>21.841827</td>\n",
+              "      <td>1</td>\n",
+              "      <td>2</td>\n",
+              "      <td>0.378788</td>\n",
+              "      <td>575</td>\n",
+              "      <td>399</td>\n",
+              "      <td>2</td>\n",
+              "      <td>50</td>\n",
+              "      <td>246</td>\n",
+              "      <td>0</td>\n",
+              "      <td>56.023366</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>3.577669</td>\n",
+              "      <td>12</td>\n",
+              "      <td>2</td>\n",
+              "      <td>13838.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>4.0</td>\n",
+              "      <td>33</td>\n",
+              "      <td>0</td>\n",
+              "      <td>87.124420</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>0.378788</td>\n",
+              "      <td>575</td>\n",
+              "      <td>126</td>\n",
+              "      <td>7</td>\n",
+              "      <td>50</td>\n",
+              "      <td>246</td>\n",
+              "      <td>0</td>\n",
+              "      <td>56.023366</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>3.338613</td>\n",
+              "      <td>13</td>\n",
+              "      <td>2</td>\n",
+              "      <td>1952.0</td>\n",
+              "      <td>2.0</td>\n",
+              "      <td>5.0</td>\n",
+              "      <td>33</td>\n",
+              "      <td>0</td>\n",
+              "      <td>74.352876</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>0.378788</td>\n",
+              "      <td>575</td>\n",
+              "      <td>41</td>\n",
+              "      <td>6</td>\n",
+              "      <td>50</td>\n",
+              "      <td>246</td>\n",
+              "      <td>0</td>\n",
+              "      <td>56.023366</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>\n",
+              "    <div class=\"colab-df-buttons\">\n",
+              "\n",
+              "  <div class=\"colab-df-container\">\n",
+              "    <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-fe7e8da1-f7e2-4fcf-b51b-6ac46fd0d155')\"\n",
+              "            title=\"Convert this dataframe to an interactive table.\"\n",
+              "            style=\"display:none;\">\n",
+              "\n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\" viewBox=\"0 -960 960 960\">\n",
+              "    <path d=\"M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z\"/>\n",
+              "  </svg>\n",
+              "    </button>\n",
+              "\n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-buttons div {\n",
+              "      margin-bottom: 4px;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "    <script>\n",
+              "      const buttonEl =\n",
+              "        document.querySelector('#df-fe7e8da1-f7e2-4fcf-b51b-6ac46fd0d155 button.colab-df-convert');\n",
+              "      buttonEl.style.display =\n",
+              "        google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "      async function convertToInteractive(key) {\n",
+              "        const element = document.querySelector('#df-fe7e8da1-f7e2-4fcf-b51b-6ac46fd0d155');\n",
+              "        const dataTable =\n",
+              "          await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                    [key], {});\n",
+              "        if (!dataTable) return;\n",
+              "\n",
+              "        const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "          '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "          + ' to learn more about interactive tables.';\n",
+              "        element.innerHTML = '';\n",
+              "        dataTable['output_type'] = 'display_data';\n",
+              "        await google.colab.output.renderOutput(dataTable, element);\n",
+              "        const docLink = document.createElement('div');\n",
+              "        docLink.innerHTML = docLinkHtml;\n",
+              "        element.appendChild(docLink);\n",
+              "      }\n",
+              "    </script>\n",
+              "  </div>\n",
+              "\n",
+              "\n",
+              "    <div id=\"df-9731b644-a97e-412b-9d4c-264467a8252f\">\n",
+              "      <button class=\"colab-df-quickchart\" onclick=\"quickchart('df-9731b644-a97e-412b-9d4c-264467a8252f')\"\n",
+              "                title=\"Suggest charts\"\n",
+              "                style=\"display:none;\">\n",
+              "\n",
+              "<svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "     width=\"24px\">\n",
+              "    <g>\n",
+              "        <path d=\"M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z\"/>\n",
+              "    </g>\n",
+              "</svg>\n",
+              "      </button>\n",
+              "\n",
+              "<style>\n",
+              "  .colab-df-quickchart {\n",
+              "      --bg-color: #E8F0FE;\n",
+              "      --fill-color: #1967D2;\n",
+              "      --hover-bg-color: #E2EBFA;\n",
+              "      --hover-fill-color: #174EA6;\n",
+              "      --disabled-fill-color: #AAA;\n",
+              "      --disabled-bg-color: #DDD;\n",
+              "  }\n",
+              "\n",
+              "  [theme=dark] .colab-df-quickchart {\n",
+              "      --bg-color: #3B4455;\n",
+              "      --fill-color: #D2E3FC;\n",
+              "      --hover-bg-color: #434B5C;\n",
+              "      --hover-fill-color: #FFFFFF;\n",
+              "      --disabled-bg-color: #3B4455;\n",
+              "      --disabled-fill-color: #666;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart {\n",
+              "    background-color: var(--bg-color);\n",
+              "    border: none;\n",
+              "    border-radius: 50%;\n",
+              "    cursor: pointer;\n",
+              "    display: none;\n",
+              "    fill: var(--fill-color);\n",
+              "    height: 32px;\n",
+              "    padding: 0;\n",
+              "    width: 32px;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart:hover {\n",
+              "    background-color: var(--hover-bg-color);\n",
+              "    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "    fill: var(--button-hover-fill-color);\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart-complete:disabled,\n",
+              "  .colab-df-quickchart-complete:disabled:hover {\n",
+              "    background-color: var(--disabled-bg-color);\n",
+              "    fill: var(--disabled-fill-color);\n",
+              "    box-shadow: none;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-spinner {\n",
+              "    border: 2px solid var(--fill-color);\n",
+              "    border-color: transparent;\n",
+              "    border-bottom-color: var(--fill-color);\n",
+              "    animation:\n",
+              "      spin 1s steps(1) infinite;\n",
+              "  }\n",
+              "\n",
+              "  @keyframes spin {\n",
+              "    0% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "      border-left-color: var(--fill-color);\n",
+              "    }\n",
+              "    20% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    30% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    40% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    60% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    80% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "    90% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "  }\n",
+              "</style>\n",
+              "\n",
+              "      <script>\n",
+              "        async function quickchart(key) {\n",
+              "          const quickchartButtonEl =\n",
+              "            document.querySelector('#' + key + ' button');\n",
+              "          quickchartButtonEl.disabled = true;  // To prevent multiple clicks.\n",
+              "          quickchartButtonEl.classList.add('colab-df-spinner');\n",
+              "          try {\n",
+              "            const charts = await google.colab.kernel.invokeFunction(\n",
+              "                'suggestCharts', [key], {});\n",
+              "          } catch (error) {\n",
+              "            console.error('Error during call to suggestCharts:', error);\n",
+              "          }\n",
+              "          quickchartButtonEl.classList.remove('colab-df-spinner');\n",
+              "          quickchartButtonEl.classList.add('colab-df-quickchart-complete');\n",
+              "        }\n",
+              "        (() => {\n",
+              "          let quickchartButtonEl =\n",
+              "            document.querySelector('#df-9731b644-a97e-412b-9d4c-264467a8252f button');\n",
+              "          quickchartButtonEl.style.display =\n",
+              "            google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "        })();\n",
+              "      </script>\n",
+              "    </div>\n",
+              "\n",
+              "    </div>\n",
+              "  </div>\n"
+            ],
+            "application/vnd.google.colaboratory.intrinsic+json": {
+              "type": "dataframe",
+              "variable_name": "df_model"
+            }
+          },
+          "metadata": {},
+          "execution_count": 21
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df_model.info()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "G5rN-5jyw5MG",
+        "outputId": "92002096-7134-44e8-8290-80f57a1b2342"
+      },
+      "execution_count": 22,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "<class 'pandas.core.frame.DataFrame'>\n",
+            "Index: 1296675 entries, 0 to 2058\n",
+            "Data columns (total 20 columns):\n",
+            " #   Column              Non-Null Count    Dtype  \n",
+            "---  ------              --------------    -----  \n",
+            " 0   log_amt             1296675 non-null  float64\n",
+            " 1   hour                1296675 non-null  int32  \n",
+            " 2   day_of_week         1296675 non-null  int32  \n",
+            " 3   time_since_last     1296675 non-null  float64\n",
+            " 4   trans_count_1h      1296675 non-null  float64\n",
+            " 5   trans_count_7d      1296675 non-null  float64\n",
+            " 6   age                 1296675 non-null  int32  \n",
+            " 7   gender              1296675 non-null  int64  \n",
+            " 8   distance_km         1296675 non-null  float64\n",
+            " 9   same_state          1296675 non-null  int64  \n",
+            " 10  city_pop_group      1296675 non-null  int64  \n",
+            " 11  merchant_diversity  1296675 non-null  float64\n",
+            " 12  unique_merchants    1296675 non-null  int64  \n",
+            " 13  merchant_encoded    1296675 non-null  int64  \n",
+            " 14  category_encoded    1296675 non-null  int64  \n",
+            " 15  state_encoded       1296675 non-null  int64  \n",
+            " 16  job_encoded         1296675 non-null  int64  \n",
+            " 17  job_risk            1296675 non-null  int64  \n",
+            " 18  avg_amt_user        1296675 non-null  float64\n",
+            " 19  is_fraud            1296675 non-null  int64  \n",
+            "dtypes: float64(7), int32(3), int64(10)\n",
+            "memory usage: 192.9 MB\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X = df_model.drop('is_fraud', axis=1)\n",
+        "y = df_model['is_fraud']\n",
+        "X_train, X_test, y_train, y_test = train_test_split(\n",
+        "    X, y, test_size=0.2, stratify=y, random_state=42\n",
+        ")\n"
+      ],
+      "metadata": {
+        "id": "XzZqUb_ZwVSL"
+      },
+      "execution_count": 23,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# OVERSAMPLING USING SMOTE"
+      ],
+      "metadata": {
+        "id": "Zg7svD-_iJaK"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "sm = SMOTE(random_state=42, sampling_strategy=0.20)\n",
+        "X_train_res, y_train_res = sm.fit_resample(X_train, y_train)\n",
+        "\n",
+        "print(\"Before SMOTE:\", y_train.value_counts())\n",
+        "print(\"After SMOTE:\", y_train_res.value_counts())\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "HVvLCgCiwWv1",
+        "outputId": "29888577-bb2a-46b0-85b4-3b7f6d1d75fa"
+      },
+      "execution_count": 24,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Before SMOTE: is_fraud\n",
+            "0    1031335\n",
+            "1       6005\n",
+            "Name: count, dtype: int64\n",
+            "After SMOTE: is_fraud\n",
+            "0    1031335\n",
+            "1     206267\n",
+            "Name: count, dtype: int64\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns\n",
+        "scaler = StandardScaler()\n",
+        "X_train_res[numeric_cols] = scaler.fit_transform(X_train_res[numeric_cols])\n",
+        "X_test[numeric_cols] = scaler.transform(X_test[numeric_cols])\n"
+      ],
+      "metadata": {
+        "id": "OVnTO4V2x9oJ"
+      },
+      "execution_count": 25,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "lr = LogisticRegression(\n",
+        "    C=0.01,\n",
+        "    penalty='l2',\n",
+        "    solver='saga',\n",
+        "    l1_ratio=0.5,\n",
+        "    max_iter=1000,\n",
+        "    class_weight={0:100, 1: 1},\n",
+        "    random_state=42\n",
+        ")\n",
+        "lr.fit(X_train_res, y_train_res)\n",
+        "y_pred = lr.predict(X_test)\n",
+        "acc = accuracy_score(y_test, y_pred)\n",
+        "print(\"Accuracy:\", round(acc * 100, 2), \"%\")\n",
+        "print(\"\\nConfusion Matrix:\")\n",
+        "print(confusion_matrix(y_test, y_pred))\n",
+        "print(\"\\nClassification Report:\")\n",
+        "print(classification_report(y_test, y_pred, digits=4))\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ebnSNvz6xS5i",
+        "outputId": "28d4339b-b974-49ab-d59e-5a94cc970065"
+      },
+      "execution_count": 43,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/usr/local/lib/python3.12/dist-packages/sklearn/linear_model/_logistic.py:1196: UserWarning: l1_ratio parameter is only used when penalty is 'elasticnet'. Got (penalty=l2)\n",
+            "  warnings.warn(\n",
+            "/usr/local/lib/python3.12/dist-packages/sklearn/linear_model/_sag.py:348: ConvergenceWarning: The max_iter was reached which means the coef_ did not converge\n",
+            "  warnings.warn(\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 99.48 %\n",
+            "\n",
+            "Confusion Matrix:\n",
+            "[[257822     12]\n",
+            " [  1330    171]]\n",
+            "\n",
+            "Classification Report:\n",
+            "              precision    recall  f1-score   support\n",
+            "\n",
+            "           0     0.9949    1.0000    0.9974    257834\n",
+            "           1     0.9344    0.1139    0.2031      1501\n",
+            "\n",
+            "    accuracy                         0.9948    259335\n",
+            "   macro avg     0.9646    0.5569    0.6002    259335\n",
+            "weighted avg     0.9945    0.9948    0.9928    259335\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "dt = DecisionTreeClassifier(\n",
+        "    criterion='gini',\n",
+        "    max_depth=20,\n",
+        "    min_samples_leaf=25,\n",
+        "    min_samples_split=50,\n",
+        "    class_weight={0:500, 1:1},\n",
+        "    random_state=42\n",
+        ")\n",
+        "dt.fit(X_train_res, y_train_res)\n",
+        "y_pred = dt.predict(X_test)\n",
+        "acc = accuracy_score(y_test, y_pred)\n",
+        "print(f\"Accuracy: {acc*100:.2f}%\")\n",
+        "print(\"\\nConfusion Matrix:\")\n",
+        "print(confusion_matrix(y_test, y_pred))\n",
+        "print(\"\\nClassification Report:\")\n",
+        "print(classification_report(y_test, y_pred, digits=4))\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "NQ4E15wU0k2n",
+        "outputId": "ad24cfd7-cf44-4ab4-f149-12d96be6c436"
+      },
+      "execution_count": 41,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 99.77%\n",
+            "\n",
+            "Confusion Matrix:\n",
+            "[[257706    128]\n",
+            " [   478   1023]]\n",
+            "\n",
+            "Classification Report:\n",
+            "              precision    recall  f1-score   support\n",
+            "\n",
+            "           0     0.9981    0.9995    0.9988    257834\n",
+            "           1     0.8888    0.6815    0.7715      1501\n",
+            "\n",
+            "    accuracy                         0.9977    259335\n",
+            "   macro avg     0.9435    0.8405    0.8852    259335\n",
+            "weighted avg     0.9975    0.9977    0.9975    259335\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "rf = RandomForestClassifier(\n",
+        "    n_estimators=50,\n",
+        "    max_depth=20,\n",
+        "    min_samples_split=50,\n",
+        "    min_samples_leaf=25,\n",
+        "    class_weight={0:100,1:10},\n",
+        "    random_state=42,\n",
+        "    n_jobs=-1\n",
+        ")\n",
+        "rf.fit(X_train_res, y_train_res)\n",
+        "y_pred = rf.predict(X_test)\n",
+        "acc = accuracy_score(y_test, y_pred)\n",
+        "print(f\"Accuracy: {acc*100:.2f}%\")\n",
+        "print(\"\\nConfusion Matrix:\")\n",
+        "print(confusion_matrix(y_test, y_pred))\n",
+        "print(\"\\nClassification Report:\")\n",
+        "print(classification_report(y_test, y_pred, digits=4))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "x4ET5Mgb2V8D",
+        "outputId": "19197116-b58d-4e78-f0a0-d8ad2aec285d"
+      },
+      "execution_count": 39,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 99.76%\n",
+            "\n",
+            "Confusion Matrix:\n",
+            "[[257737     97]\n",
+            " [   521    980]]\n",
+            "\n",
+            "Classification Report:\n",
+            "              precision    recall  f1-score   support\n",
+            "\n",
+            "           0     0.9980    0.9996    0.9988    257834\n",
+            "           1     0.9099    0.6529    0.7603      1501\n",
+            "\n",
+            "    accuracy                         0.9976    259335\n",
+            "   macro avg     0.9540    0.8263    0.8795    259335\n",
+            "weighted avg     0.9975    0.9976    0.9974    259335\n",
+            "\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
